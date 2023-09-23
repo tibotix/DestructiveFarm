@@ -16,6 +16,7 @@ import stat
 import subprocess
 import time
 import threading
+import base64
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from math import ceil
@@ -81,6 +82,8 @@ def parse_args():
     parser.add_argument('-u', '--server-url', metavar='URL',
                         default='http://farm.kolambda.com:5000',
                         help='Server URL')
+    parser.add_argument("--user", default=None, help="Basic Auth Username")
+    parser.add_argument("--password", default=None, help="Basic Auth Password")
     parser.add_argument('-a', '--alias', metavar='ALIAS',
                         default=None,
                         help='Sploit alias')
@@ -111,6 +114,12 @@ def parse_args():
 
     return parser.parse_args()
 
+
+def make_authorized_request_obj(url: str, user: str|None, password: str|None):
+    req = Request(url)
+    if user != None and password != None:
+        req.add_header("Authorization", f"Basic {base64.b64encode(f'{user}:{password}'.encode()).decode()}")
+    return req
 
 def fix_args(args):
     check_sploit(args)
@@ -238,7 +247,7 @@ SERVER_TIMEOUT = 5
 
 
 def get_config(args):
-    req = Request(urljoin(args.server_url, '/api/get_config'))
+    req = make_authorized_request_obj(urljoin(args.server_url, '/api/get_config'), args.user, args.password)
     if args.token is not None:
         req.add_header('X-Token', args.token)
     with urlopen(req, timeout=SERVER_TIMEOUT) as conn:
@@ -257,7 +266,7 @@ def post_flags(args, flags):
     data = [{'flag': item['flag'], 'sploit': sploit_name, 'team': item['team']}
             for item in flags]
 
-    req = Request(urljoin(args.server_url, '/api/post_flags'))
+    req = make_authorized_request_obj(urljoin(args.server_url, '/api/post_flags'), args.user, args.password)
     req.add_header('Content-Type', 'application/json')
     if args.token is not None:
         req.add_header('X-Token', args.token)
